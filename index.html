@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>CodeSnap - Real-Time Secure Code Sharing</title>
+
+  <!-- Prism.js for syntax highlighting -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" />
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.css" />
+
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet" />
+
+  <!-- QRCode.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+  <!-- TOAST CONTAINER -->
+  <div id="toast-container"></div>
+
+  <!-- PASSWORD OVERLAY -->
+  <div class="password-overlay" id="pass-overlay">
+    <div class="password-card">
+      <div style="font-size:2.5rem;margin-bottom:12px;">🔒</div>
+      <h3>Protected Snippet</h3>
+      <p>This snippet is password-protected. Enter the password to view it.</p>
+      <input type="password" id="pass-input" placeholder="Password" autofocus />
+      <div class="pass-error" id="pass-error"></div>
+      <button class="btn btn-primary" style="width:100%;justify-content:center;margin-top:6px;" onclick="unlockSnippet()">Unlock Snippet</button>
+    </div>
+  </div>
+
+  <!-- HISTORY DRAWER -->
+  <div class="drawer-overlay" id="drawer-overlay" onclick="toggleHistory()"></div>
+  <div class="history-drawer" id="history-drawer">
+    <div class="history-header">
+      <h3>My Snippets</h3>
+      <button class="btn btn-ghost btn-icon" onclick="toggleHistory()">×</button>
+    </div>
+    <div id="history-list"></div>
+  </div>
+
+  <!-- APP WRAPPER -->
+  <div class="app-wrapper">
+    <!-- NAVBAR -->
+    <nav class="navbar">
+      <a href="#" class="logo" onclick="showEditorPage()">
+        <div class="logo-icon"></div>
+        <div class="logo-text">Code<span>Snap</span></div>
+        <div class="logo-badge">BETA</div>
+      </a>
+
+      <div class="nav-actions">
+        <div class="collab-indicator" id="collab-indicator">
+          <span style="width:7px;height:7px;border-radius:50%;background:var(--neon-green);display:inline-block;animation:pulse-dot 1.5s infinite;"></span>
+          <span>Live</span>
+        </div>
+        <button class="btn btn-ghost btn-icon" onclick="toggleHistory()" title="My Snippets">☰</button>
+        <button class="btn btn-ghost btn-icon" id="theme-toggle" onclick="toggleTheme()" title="Toggle Theme">☾</button>
+        <button class="btn btn-primary" onclick="saveSnippet()"><span>✨</span>Generate Link</button>
+      </div>
+    </nav>
+
+    <!-- EDITOR PAGE -->
+    <div id="editor-page" class="main-container fade-in">
+      <!-- TOOLBAR -->
+      <div class="toolbar">
+        <div class="toolbar-group">
+          <span class="toolbar-label">Lang</span>
+          <select id="lang-select" onchange="updateLanguage()">
+            <option value="javascript">JavaScript</option>
+            <option value="html">HTML</option>
+            <option value="css">CSS</option>
+            <option value="python">Python</option>
+            <option value="java">Java</option>
+            <option value="csharp">C#</option>
+            <option value="cpp">C++</option>
+            <option value="php">PHP</option>
+            <option value="typescript">TypeScript</option>
+            <option value="sql">SQL</option>
+            <option value="bash">Bash</option>
+            <option value="json">JSON</option>
+            <option value="markdown">Markdown</option>
+            <option value="plaintext">Plain Text</option>
+          </select>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <div class="toolbar-group">
+          <span class="toolbar-label">Font</span>
+          <input type="number" id="font-size" value="14" min="10" max="24" onchange="updateFontSize()" title="Font Size" />
+          <span style="font-size:0.75rem;color:var(--text-muted);">px</span>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <div class="toolbar-group">
+          <span class="toolbar-label">Expiry</span>
+          <select id="expiry-select" onchange="updateExpiry()">
+            <option value="0">No Expiry</option>
+            <option value="300">5 min</option>
+            <option value="600">10 min</option>
+            <option value="1800">30 min</option>
+            <option value="3600">1 hour</option>
+            <option value="86400">24 hours</option>
+          </select>
+          <div class="expiry-group">
+            <div class="expiry-dot" id="expiry-dot" style="display:none;"></div>
+            <span id="timer-display" style="display:none;"></span>
+          </div>
+        </div>
+
+        <div class="toolbar-divider"></div>
+
+        <div class="toolbar-group" style="margin-left:auto;">
+          <button class="btn btn-ghost btn-icon" onclick="clearEditor()" title="Clear">⌫</button>
+          <button class="btn btn-ghost btn-icon" onclick="formatCode()" title="Format / Prettify">⟲</button>
+          <button class="btn btn-ghost btn-icon" onclick="toggleFullscreen()" title="Fullscreen">⤢</button>
+        </div>
+      </div>
+
+      <!-- SNIPPET META -->
+      <div class="snippet-meta">
+        <div class="meta-field">
+          <label>Snippet Title</label>
+          <input type="text" id="snippet-title" placeholder="e.g. My Awesome Function" maxlength="80" />
+        </div>
+        <div class="meta-field">
+          <label>Description (optional)</label>
+          <input type="text" id="snippet-desc" placeholder="Brief description..." maxlength="120" />
+        </div>
+        <div class="meta-field" style="max-width:200px;">
+          <label>Password (optional)</label>
+          <div class="password-wrap">
+            <input type="password" id="snippet-password" placeholder="Leave blank for public" />
+            <button class="toggle-pass" onclick="togglePassVisibility()" id="pass-eye">👁</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- STATS BAR -->
+      <div class="stats-bar">
+        <div class="stat-item">Lines <strong id="stat-lines">0</strong></div>
+        <div class="stat-item">Chars <strong id="stat-chars">0</strong></div>
+        <div class="stat-item">Words <strong id="stat-words">0</strong></div>
+        <div class="stat-item">Size <strong id="stat-size">0 B</strong></div>
+        <div class="stat-item" style="margin-left:auto;color:var(--neon-green);" id="stat-lang">javascript</div>
+      </div>
+
+      <!-- CODE EDITOR -->
+      <div class="editor-panel" id="editor-panel">
+        <div class="editor-header">
+          <div class="editor-dots">
+            <div class="dot dot-red"></div>
+            <div class="dot dot-yellow"></div>
+            <div class="dot dot-green"></div>
+          </div>
+          <div class="editor-title" id="editor-title-label">untitled.js</div>
+          <div class="editor-actions">
+            <button class="btn btn-ghost btn-icon" onclick="copyCode()" title="Copy Code" id="copy-btn">⧉</button>
+          </div>
+        </div>
+        <textarea
+          id="code-input"
+          placeholder="Paste or type your code here... CodeSnap will handle the rest."
+          spellcheck="false"
+          oninput="onCodeInput()"
+          onkeydown="handleTabKey(event)"
+        >function hello() {
+  console.log("Hello, CodeSnap!");
+}</textarea>
+      </div>
+
+      <!-- LIVE PREVIEW HTML/CSS/JS only -->
+      <div class="preview-panel" id="preview-panel" style="display:none;">
+        <div class="preview-header">
+          <div class="preview-label">
+            <div class="preview-status"></div>
+            Live Preview
+          </div>
+          <div style="display:flex;gap:6px;">
+            <button class="btn btn-ghost btn-icon" onclick="refreshPreview()" title="Refresh">↻</button>
+            <button class="btn btn-ghost btn-icon" onclick="openPreviewWindow()" title="Open in new tab">↗</button>
+          </div>
+        </div>
+        <iframe id="preview-frame" sandbox="allow-scripts"></iframe>
+      </div>
+
+      <!-- AI EXPLANATION PANEL -->
+      <div class="ai-panel">
+        <div class="ai-header">
+          <div class="ai-title">AI Code Explainer <span class="ai-badge">Powered by Claude</span></div>
+          <button class="btn btn-ghost" onclick="explainCode()" id="explain-btn" style="font-size:0.78rem;">Explain My Code</button>
+        </div>
+        <div id="ai-output">
+          <span style="color:var(--text-muted);font-size:0.82rem;">Paste code above, then click Explain My Code to get an instant AI-powered explanation.</span>
+        </div>
+      </div>
+
+      <!-- SHARE PANEL -->
+      <div class="share-panel" id="share-panel">
+        <h3>Your Shareable Link is Ready!</h3>
+        <div class="share-link-wrap">
+          <input type="text" class="share-link-input" id="share-link-input" readonly />
+          <button class="btn btn-primary" onclick="copyShareLink()">Copy</button>
+        </div>
+        <div class="share-options">
+          <button class="btn btn-ghost" onclick="toggleQR()">QR Code</button>
+          <button class="btn btn-ghost" onclick="downloadCode()">Download</button>
+          <button class="btn btn-ghost" onclick="shareNative()">Share</button>
+          <button class="btn btn-danger" onclick="deleteCurrentSnippet()">Delete</button>
+        </div>
+        <div id="qr-container">
+          <div id="qr-code"></div>
+          <div class="qr-label">Scan to open this snippet</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- VIEW PAGE read-only snippet display -->
+    <div id="view-page" class="fade-in">
+      <div class="view-header-bar">
+        <div class="view-meta">
+          <h2 id="view-title">Untitled Snippet</h2>
+          <p id="view-meta-info">javascript • just now</p>
+        </div>
+        <div class="view-actions">
+          <button class="btn btn-ghost" onclick="copyViewCode()">Copy</button>
+          <button class="btn btn-ghost" onclick="downloadViewCode()">Download</button>
+          <button class="btn btn-ghost" onclick="showEditorPage()">New Snippet</button>
+          <button class="btn btn-ghost" onclick="loadSnippetInEditor()">Edit</button>
+        </div>
+      </div>
+
+      <div style="max-width:1200px;margin:0 auto;padding:20px;">
+        <!-- Timer if expiry set -->
+        <div id="view-timer-bar" style="display:none;padding:10px 16px;background:rgba(255,123,84,0.1);border:1px solid rgba(255,123,84,0.3);border-radius:8px;margin-bottom:16px;font-size:0.82rem;font-family:var(--font-mono);color:var(--neon-orange);">
+          Expires in <strong id="view-timer-count"></strong>
+        </div>
+
+        <!-- AI explain in view mode -->
+        <div class="ai-panel" style="margin-bottom:16px;">
+          <div class="ai-header">
+            <div class="ai-title">AI Code Explainer <span class="ai-badge">Claude</span></div>
+            <button class="btn btn-ghost" onclick="explainViewCode()" style="font-size:0.78rem;">Explain</button>
+          </div>
+          <div id="view-ai-output" style="padding:16px;font-size:0.85rem;line-height:1.7;color:var(--text-muted);">
+            Click Explain to understand this code instantly.
+          </div>
+        </div>
+
+        <div class="view-code-wrap">
+          <pre class="line-numbers"><code id="view-code-block" class="language-javascript"></code></pre>
+        </div>
+
+        <!-- View share section -->
+        <div style="margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-ghost" onclick="toggleViewQR()">QR Code</button>
+          <div id="view-qr-container" style="display:none;padding:12px;background:rgba(255,255,255,0.05);border-radius:8px;border:1px solid var(--border);">
+            <div id="view-qr-code" style="display:inline-block;padding:10px;background:#fff;border-radius:6px;"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FOOTER -->
+    <footer class="footer">
+      <span>CodeSnap</span> — Real-Time Secure Code Sharing Platform &nbsp;•&nbsp; Built with HTML CSS JS &nbsp;•&nbsp; No account needed
+    </footer>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/plugins/line-numbers/prism-line-numbers.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-javascript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-python.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-java.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-csharp.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-cpp.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-php.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-typescript.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-sql.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-bash.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-json.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markdown.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-css.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/components/prism-markup.min.js"></script>
+
+  <script src="script.js"></script>
+</body>
+</html>
