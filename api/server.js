@@ -79,7 +79,7 @@ Format your response with these sections:
 /*
   Catch-all: serve index.html for all non-API routes (SPA routing)
 */
-app.get("*", (req, res) => {
+app.get(/.*/, (req, res) => {
   res.sendFile(path.join(__dirname, "..", "index.html"));
 });
 
