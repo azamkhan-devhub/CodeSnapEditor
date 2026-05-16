@@ -1,8 +1,6 @@
 {
   "version": 2,
-  "builds": [
-    { "src": "api/explain.js", "use": "@vercel/node" }
-  ],
+  "framework": null,
   "routes": [
     { "handle": "filesystem" },
     { "src": "/api/explain", "dest": "/api/explain.js" },
